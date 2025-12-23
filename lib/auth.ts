@@ -140,15 +140,16 @@ export async function getCurrentUser(): Promise<User | null> {
 export async function createUser(
   email: string,
   password: string,
-  name?: string
+  name?: string,
+  role: string = 'teacher'
 ): Promise<User> {
   const passwordHash = await hashPassword(password)
   
   const users = await query<User>(
     `INSERT INTO users (email, password_hash, name, role) 
-     VALUES ($1, $2, $3, 'admin') 
+     VALUES ($1, $2, $3, $4) 
      RETURNING id, email, name, role, created_at`,
-    [email, passwordHash, name || null]
+    [email, passwordHash, name || null, role]
   )
 
   return users[0]

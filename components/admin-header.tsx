@@ -1,109 +1,74 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { ButtonLoader } from "@/components/loading/loading-states"
-import { useAuth } from "@/hooks/use-auth"
 import Link from "next/link"
-import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { GraduationCap, LogOut } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/hooks/use-auth"
+import { useCallback, useState } from "react"
 
 interface AdminHeaderProps {
   title?: string
 }
 
 export function AdminHeader({ title = "Admin Dashboard" }: AdminHeaderProps) {
-  const { user, signOut, isSigningOut } = useAuth()
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const router = useRouter()
+  const { user, signOut } = useAuth()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
+  const handleLogout = useCallback(async () => {
+    setIsLoggingOut(true)
+    try {
+      await signOut()
+      router.push("/")
+      router.refresh()
+    } catch (error) {
+      console.error("Logout error:", error)
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }, [signOut, router])
+
+  const isAdmin = user?.role === "admin"
 
   return (
-    <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-      <div className="container mx-auto px-4 py-3 sm:py-4">
-        <nav className="flex items-center justify-between gap-2 sm:gap-4">
-          {/* Logo/Title - Always visible */}
-          <Link 
-            href="/admin/dashboard" 
-            className="text-base sm:text-lg md:text-2xl font-bold text-primary truncate hover:text-primary/80 transition-colors flex-shrink-0"
-          >
-            <span className="hidden sm:inline">{title}</span>
-            <span className="sm:hidden">Admin</span>
-          </Link>
+    <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container mx-auto px-4 py-4">
+        <nav className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link href="/" className="flex items-center gap-2 text-xl md:text-2xl font-bold text-primary">
+              <GraduationCap className="h-7 w-7" />
+              <span className="hidden sm:inline">GC Tanur</span>
+            </Link>
+            <span className="text-muted-foreground">|</span>
+            <span className="font-medium text-sm sm:text-base">{title}</span>
+          </div>
 
-          {/* Desktop Navigation */}
-          <div className="hidden sm:flex items-center gap-2 md:gap-4">
-            {user && (
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/admin/papers">Papers</Link>
+            </Button>
+            {isAdmin && (
               <>
-                <span className="text-xs md:text-sm text-muted-foreground truncate max-w-[120px] md:max-w-[200px] lg:max-w-none">
-                  Welcome, {user.email}
-                </span>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={signOut} 
-                  disabled={isSigningOut}
-                  className="whitespace-nowrap text-xs sm:text-sm"
-                >
-                  {isSigningOut ? (
-                    <ButtonLoader text="Signing out" />
-                  ) : (
-                    "Sign Out"
-                  )}
+                <Button asChild variant="ghost" size="sm">
+                  <Link href="/admin/dashboard">Dashboard</Link>
+                </Button>
+                <Button asChild variant="ghost" size="sm">
+                  <Link href="/admin/users">Users</Link>
                 </Button>
               </>
             )}
-          </div>
-
-          {/* Mobile Menu Button */}
-          <div className="sm:hidden">
-            {user && (
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="p-2"
-                aria-label="Toggle menu"
-              >
-                <svg 
-                  className="w-5 h-5" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  {isMobileMenuOpen ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  )}
-                </svg>
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              {isLoggingOut ? "..." : "Logout"}
+            </Button>
           </div>
         </nav>
-
-        {/* Mobile Menu Dropdown */}
-        {isMobileMenuOpen && user && (
-          <div className="sm:hidden border-t mt-3 pt-3 animate-in slide-in-from-top-2 duration-200">
-            <div className="flex flex-col gap-3">
-              <span className="text-sm text-muted-foreground truncate">
-                Welcome, {user.email}
-              </span>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => {
-                  signOut()
-                  setIsMobileMenuOpen(false)
-                }} 
-                disabled={isSigningOut}
-                className="justify-center"
-              >
-                {isSigningOut ? (
-                  <ButtonLoader text="Signing out" />
-                ) : (
-                  "Sign Out"
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
     </header>
   )

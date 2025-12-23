@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Menu, X } from "lucide-react"
+import { Menu, X, GraduationCap } from "lucide-react"
 import { useState } from "react"
 
 export function Header() {
@@ -16,8 +16,9 @@ export function Header() {
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4">
         <nav className="flex items-center justify-between">
-          <Link href="/" className="text-xl md:text-2xl font-bold text-primary">
-            PosterGallery
+          <Link href="/" className="flex items-center gap-2 text-xl md:text-2xl font-bold text-primary">
+            <img src="/Logo.png" alt="gc tanur" height={30} width={30}/>
+            <span>GC Tanur</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -25,14 +26,14 @@ export function Header() {
             <Link href="/" className="text-foreground hover:text-primary transition-colors">
               Home
             </Link>
-            <Link href="/gallery" className="text-foreground hover:text-primary transition-colors">
-              Gallery
+            <Link href="/browse" className="text-foreground hover:text-primary transition-colors">
+              Browse Papers
             </Link>
             <Link href="/about" className="text-foreground hover:text-primary transition-colors">
               About
             </Link>
             <Button asChild variant="outline" size="sm">
-              <Link href="/admin/login">Admin Login</Link>
+              <Link href="/admin/login">Teacher Login</Link>
             </Button>
           </div>
 
@@ -50,22 +51,22 @@ export function Header() {
         {isMobileMenuOpen && (
           <div className="md:hidden mt-4 pb-4 border-t pt-4">
             <div className="flex flex-col space-y-4">
-              <Link 
-                href="/" 
+              <Link
+                href="/"
                 className="text-foreground hover:text-primary transition-colors py-2"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Home
               </Link>
-              <Link 
-                href="/gallery" 
+              <Link
+                href="/browse"
                 className="text-foreground hover:text-primary transition-colors py-2"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                Gallery
+                Browse Papers
               </Link>
-              <Link 
-                href="/about" 
+              <Link
+                href="/about"
                 className="text-foreground hover:text-primary transition-colors py-2"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
@@ -73,7 +74,7 @@ export function Header() {
               </Link>
               <Button asChild variant="outline" size="sm" className="w-fit">
                 <Link href="/admin/login" onClick={() => setIsMobileMenuOpen(false)}>
-                  Admin Login
+                  Teacher Login
                 </Link>
               </Button>
             </div>

@@ -175,11 +175,6 @@ export default function AdminLoginPage() {
               </div>
               <div className="mt-4 text-center text-sm space-y-2">
                 <div>
-                  <Link href="/admin/signup" className="text-primary hover:text-primary/80 underline underline-offset-4 transition-colors">
-                    Need to create an admin account?
-                  </Link>
-                </div>
-                <div>
                   <Link href="/" className="text-muted-foreground hover:text-primary underline underline-offset-4 transition-colors">
                     ← Back to Gallery
                   </Link>

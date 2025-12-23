@@ -13,23 +13,29 @@ export async function updateSession(request: NextRequest) {
   // Get auth token from cookie
   const token = request.cookies.get(COOKIE_NAME)?.value
 
-  // Check if user is authenticated
+  // Check if user is authenticated and get their role
   let isAuthenticated = false
+  let userRole = ''
   if (token) {
     try {
-      await jwtVerify(token, JWT_SECRET)
+      const { payload } = await jwtVerify(token, JWT_SECRET)
       isAuthenticated = true
+      userRole = (payload.role as string) || ''
     } catch {
-      // Token is invalid or expired - don't log unless debugging
-      // This is expected behavior for unauthenticated requests
+      // Token is invalid or expired
     }
   }
 
-  // Protect admin routes (except login, signup, and setup)
-  const isAdminRoute = request.nextUrl.pathname.startsWith("/admin")
-  const isAuthPage = request.nextUrl.pathname.startsWith("/admin/login") || 
-                     request.nextUrl.pathname.startsWith("/admin/signup") ||
-                     request.nextUrl.pathname.startsWith("/admin/setup")
+  // Protect admin routes
+  const pathname = request.nextUrl.pathname
+  const isAdminRoute = pathname.startsWith("/admin")
+  const isAuthPage = pathname.startsWith("/admin/login") || 
+                     pathname.startsWith("/admin/signup") ||
+                     pathname.startsWith("/admin/setup")
+  
+  // Dashboard and User management are Admin-only
+  const isAdminOnlyRoute = pathname.startsWith("/admin/dashboard") || 
+                           pathname.startsWith("/admin/users")
 
   if (isAdminRoute && !isAuthPage && !isAuthenticated) {
     // Also check for access key fallback
@@ -54,10 +60,18 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // Redirect teachers away from admin-only routes
+  if (isAuthenticated && userRole === 'teacher' && isAdminOnlyRoute) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/admin/papers"
+    return NextResponse.redirect(url)
+  }
+
   // Redirect authenticated users away from login/signup pages
   if (isAuthPage && isAuthenticated) {
     const url = request.nextUrl.clone()
-    url.pathname = "/admin/dashboard"
+    // Teachers go to papers, Admins go to dashboard
+    url.pathname = userRole === 'admin' ? "/admin/dashboard" : "/admin/papers"
     return NextResponse.redirect(url)
   }
 

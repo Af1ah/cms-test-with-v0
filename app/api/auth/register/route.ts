@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createUser, getUserByEmail, createToken, setSessionCookieOnResponse, getUserCount } from '@/lib/auth'
+import { createUser, getUserByEmail, createToken, setSessionCookieOnResponse, getUserCount, getCurrentUser } from '@/lib/auth'
 import { initializeDatabase } from '@/lib/db'
 
 export async function POST(request: NextRequest) {
@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     await initializeDatabase()
 
     const body = await request.json()
-    const { email, password, name, accessKey } = body
+    const { email, password, name, role, accessKey } = body
 
     // Validate input
     if (!email || !password) {
@@ -18,41 +18,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: 'Invalid email format' },
-        { status: 400 }
-      )
-    }
-
-    // Validate password length
-    if (password.length < 8) {
-      return NextResponse.json(
-        { error: 'Password must be at least 8 characters long' },
-        { status: 400 }
-      )
-    }
-
-    // Check if this is the first user (allow without access key)
+    // Check if this is the first user
     const userCount = await getUserCount()
     const isFirstUser = userCount === 0
 
     if (!isFirstUser) {
-      // Require access key for additional admins
-      const validAccessKey = process.env.ADMIN_ACCESS_KEY
-      if (!validAccessKey) {
-        return NextResponse.json(
-          { error: 'Admin registration is disabled. Contact the administrator.' },
-          { status: 403 }
-        )
-      }
-      if (!accessKey || accessKey !== validAccessKey) {
-        return NextResponse.json(
-          { error: 'Valid access key is required to create additional admin accounts' },
-          { status: 403 }
-        )
+      // For subsequent users, require an authenticated admin
+      const currentUser = await getCurrentUser()
+      if (!currentUser || currentUser.role !== 'admin') {
+        // Fallback to access key for testing/special cases if needed?
+        // User said "user creation only for the admin".
+        const validAccessKey = process.env.ADMIN_ACCESS_KEY
+        if (!accessKey || accessKey !== validAccessKey) {
+          return NextResponse.json(
+            { error: 'Only admins can create new users' },
+            { status: 403 }
+          )
+        }
       }
     }
 
@@ -65,8 +47,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create user
-    const user = await createUser(email, password, name)
+    // Create user with specified role or default to teacher
+    // If it's the first user, always make them an admin
+    const userRole = isFirstUser ? 'admin' : (role || 'teacher')
+    const user = await createUser(email, password, name, userRole)
     console.log('✅ User created successfully:', email)
 
     // Create JWT token

@@ -12,9 +12,51 @@ import { PerformanceMonitor } from "@/components/performance-monitor"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "PosterGallery - Admin CMS",
-  description: "Content Management System for PosterGallery",
-  generator: "v0.app",
+  title: "GC Tanur - Question Paper Repository",
+  description: "Download previous year question papers from GC Tanur (Government College Tanur). Access question papers from all departments including Computer Science, Commerce, Electronics, Malayalam, and English.",
+  keywords: [
+    "GC Tanur",
+    "Government College Tanur",
+    "question papers",
+    "previous year papers",
+    "exam papers",
+    "university question papers",
+    "Computer Science papers",
+    "Commerce papers",
+    "semester exams",
+    "Kerala University"
+  ],
+  authors: [{ name: "GC Tanur" }],
+  creator: "GC Tanur",
+  publisher: "Government College Tanur",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_IN",
+    url: "https://gctanur.edu.in/papers",
+    siteName: "GC Tanur Question Papers",
+    title: "GC Tanur - Question Paper Repository",
+    description: "Access and download previous year question papers from Government College Tanur. Free resource for students.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "GC Tanur Question Papers",
+    description: "Download previous year question papers from all departments at GC Tanur.",
+  },
+  alternates: {
+    canonical: "https://gctanur.edu.in/papers",
+  },
+  category: "Education",
 }
 
 function LoadingFallback() {
@@ -48,10 +90,37 @@ export default function RootLayout({
           type="font/woff2"
           crossOrigin=""
         />
-        {/* DNS prefetch for external resources */}
+        {/* DNS prefetch */}
         <link rel="dns-prefetch" href="https://vercel.live" />
-        {/* Viewport optimization for better mobile performance */}
+        {/* Viewport */}
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+        {/* Theme color */}
+        <meta name="theme-color" content="#4f46e5" />
+        {/* Structured Data */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "EducationalOrganization",
+              name: "Government College Tanur",
+              alternateName: "GC Tanur",
+              description: "Question Paper Repository - Download previous year exam papers",
+              url: "https://gctanur.edu.in",
+              sameAs: [],
+              address: {
+                "@type": "PostalAddress",
+                addressLocality: "Tanur",
+                addressRegion: "Kerala",
+                addressCountry: "IN"
+              },
+              contactPoint: {
+                "@type": "ContactPoint",
+                contactType: "general"
+              }
+            })
+          }}
+        />
       </head>
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable} antialiased`}>
         <ErrorBoundary>
