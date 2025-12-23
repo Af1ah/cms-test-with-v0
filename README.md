@@ -48,3 +48,28 @@ The following environment variables are automatically configured through the Sup
 2. Run the database setup scripts in order
 3. Visit the homepage to see the poster gallery
 4. Create an admin account to start managing content
+
+## 🚀 Performance Optimization
+
+This project has been heavily optimized for performance, accessibility, and SEO.
+
+### Testing Performance Properly
+To see the **true performance** of the application (as it would be in production), avoid running Lighthouse in development mode (`npm run dev`). Instead, use a production build:
+
+1. **Build the project**:
+   ```bash
+   npm run build
+   ```
+2. **Start in production mode**:
+   ```bash
+   npm run start
+   ```
+3. Open `http://localhost:3000` in a **Guest/Incognito window**.
+4. Run the Lighthouse audit.
+
+### Key Optimizations Implemented:
+- **Incremental Static Regeneration (ISR)**: The home page is cached and revalidated in the background.
+- **Database Connection Pooling**: Optimized DB queries with lock-based initialization.
+- **Parallel Fetching**: Reduced waterfall delays by parallelizing server-side data requests.
+- **Image Optimization**: Fully utilized `next/image` with proper prioritization and quality settings.
+- **TBT Reduction**: Eliminated artificial transition delays and reduced main-thread blocking scripts.

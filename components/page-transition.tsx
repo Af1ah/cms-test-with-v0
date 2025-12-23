@@ -10,35 +10,13 @@ interface PageTransitionProps {
 }
 
 export function PageTransition({ children }: PageTransitionProps) {
-  const [isTransitioning, setIsTransitioning] = useState(false)
-  const [displayChildren, setDisplayChildren] = useState(children)
   const pathname = usePathname()
 
-  useEffect(() => {
-    setIsTransitioning(true)
-    
-    const timer = setTimeout(() => {
-      setDisplayChildren(children)
-      setIsTransitioning(false)
-    }, 150)
-
-    return () => clearTimeout(timer)
-  }, [children, pathname])
-
+  // Remove the artificial delay and double buffering of children
+  // This reduces TBT significantly
   return (
-    <div className={cn(
-      "transition-opacity duration-150 ease-in-out",
-      isTransitioning ? "opacity-0" : "opacity-100"
-    )}>
-      {isTransitioning ? (
-        <LoadingState 
-          type="pulse" 
-          text="Loading..." 
-          className="min-h-[200px]"
-        />
-      ) : (
-        displayChildren
-      )}
+    <div className="animate-in fade-in duration-300">
+      {children}
     </div>
   )
 }
@@ -48,9 +26,13 @@ export function NavigationLoader() {
   const pathname = usePathname()
 
   useEffect(() => {
-    setIsLoading(true)
-    const timer = setTimeout(() => setIsLoading(false), 300)
-    return () => clearTimeout(timer)
+    // Only show loader if transition takes more than 100ms
+    const timer = setTimeout(() => setIsLoading(true), 100)
+    // Hide immediately on pathname change
+    return () => {
+      clearTimeout(timer)
+      setIsLoading(false)
+    }
   }, [pathname])
 
   if (!isLoading) return null

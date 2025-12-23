@@ -2,7 +2,7 @@ import { Header } from "@/components/header"
 import SearchClient from "./search-client"
 import { query, initializeDatabase } from "@/lib/db"
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 60 // Revalidate every minute
 
 interface QuestionPaper {
   id: number
@@ -31,26 +31,25 @@ interface SubjectType {
 export default async function HomePage() {
   await initializeDatabase()
 
-  // Fetch recent papers
-  const recentPapers = await query<QuestionPaper>(
-    `SELECT qp.*, 
-            d.name as department_name, 
-            st.name as subject_type_name
-     FROM question_papers qp
-     LEFT JOIN departments d ON qp.department_id = d.id
-     LEFT JOIN subject_types st ON qp.subject_type_id = st.id
-     ORDER BY qp.created_at DESC
-     LIMIT 10`
-  )
+  // Fetch all required data in parallel
+  const [recentPapers, departments, subjectTypes, yearsResult] = await Promise.all([
+    query<QuestionPaper>(
+      `SELECT qp.*, 
+              d.name as department_name, 
+              st.name as subject_type_name
+       FROM question_papers qp
+       LEFT JOIN departments d ON qp.department_id = d.id
+       LEFT JOIN subject_types st ON qp.subject_type_id = st.id
+       ORDER BY qp.created_at DESC
+       LIMIT 10`
+    ),
+    query<Department>("SELECT * FROM departments ORDER BY name"),
+    query<SubjectType>("SELECT * FROM subject_types ORDER BY name"),
+    query<{ year_of_examination: number }>(
+      "SELECT DISTINCT year_of_examination FROM question_papers ORDER BY year_of_examination DESC"
+    )
+  ])
 
-  // Fetch departments and subject types for filters
-  const departments = await query<Department>("SELECT * FROM departments ORDER BY name")
-  const subjectTypes = await query<SubjectType>("SELECT * FROM subject_types ORDER BY name")
-
-  // Get unique years from existing papers
-  const yearsResult = await query<{ year_of_examination: number }>(
-    "SELECT DISTINCT year_of_examination FROM question_papers ORDER BY year_of_examination DESC"
-  )
   const years = yearsResult.map(r => r.year_of_examination)
 
   return (

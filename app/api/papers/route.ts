@@ -24,7 +24,6 @@ interface QuestionPaper {
 
 export async function GET(request: Request) {
   try {
-    await initializeDatabase()
 
     const { searchParams } = new URL(request.url)
     const subject = searchParams.get("subject")
@@ -102,7 +101,6 @@ export async function POST(request: Request) {
   console.log("🚀 POST /api/papers - Starting request")
 
   try {
-    await initializeDatabase()
 
     // Check if user is authenticated
     const user = await getCurrentUser()

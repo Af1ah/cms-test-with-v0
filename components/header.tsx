@@ -1,8 +1,9 @@
 "use client"
 
+import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Menu, X, GraduationCap } from "lucide-react"
+import { Menu, X } from "lucide-react"
 import { useState } from "react"
 
 export function Header() {
@@ -17,7 +18,15 @@ export function Header() {
       <div className="container mx-auto px-4 py-4">
         <nav className="flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-xl md:text-2xl font-bold text-primary">
-            <img src="/Logo.png" alt="gc tanur" height={30} width={30}/>
+            <Image
+              src="/Logo.png"
+              alt="gc tanur"
+              height={30}
+              width={30}
+              priority
+              quality={75}
+              className="object-contain"
+            />
             <span>GC Tanur</span>
           </Link>
 

@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -46,9 +47,11 @@ export function PaperCard({ paper }: PaperCardProps) {
                 <div className="flex flex-1 min-w-0 justify-between items-center">
                     {/* Center: Typography & Hierarchy */}
                     <div className="flex-1 min-w-0 pr-4">
-                        <h3 className="font-bold text-base sm:text-lg text-slate-900 truncate group-hover:text-primary transition-colors">
-                            {paper.subject_name}
-                        </h3>
+                        <Link href={`/papers/${paper.id}`}>
+                            <h3 className="font-bold text-base sm:text-lg text-slate-900 truncate group-hover:text-primary transition-colors cursor-pointer">
+                                {paper.subject_name}
+                            </h3>
+                        </Link>
                         <p className="text-xs sm:text-sm text-slate-500 line-clamp-1 mb-0.5">
                             <span className="font-semibold text-slate-700">{paper.subject_code}</span>
                             {paper.paper_code && ` • ${paper.paper_code}`}
@@ -66,17 +69,28 @@ export function PaperCard({ paper }: PaperCardProps) {
                         </div>
                     </div>
 
-                    {/* Right: Action Button (Simple Download Icon) */}
-                    <div className="flex-shrink-0">
+                    {/* Right: Action Buttons */}
+                    <div className="flex items-center gap-1 flex-shrink-0">
                         <Button
                             asChild
                             variant="ghost"
                             size="icon"
-                            className="h-10 w-10 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-full transition-all border border-transparent hover:border-primary/20"
+                            className="h-9 w-9 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-full transition-all"
+                            title="View Details"
+                        >
+                            <Link href={`/papers/${paper.id}`}>
+                                <BookOpen className="h-4 w-4" />
+                            </Link>
+                        </Button>
+                        <Button
+                            asChild
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-full transition-all border border-transparent hover:border-primary/20"
                             title={`Download ${paper.file_type.toUpperCase()}`}
                         >
-                            <a href={`/api/download/${paper.id}`} download>
-                                <Download className="h-5 w-5" />
+                            <a href={`/api/download/${paper.id}`}>
+                                <Download className="h-4 w-4" />
                             </a>
                         </Button>
                     </div>

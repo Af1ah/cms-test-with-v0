@@ -57,21 +57,22 @@ export async function GET(
       'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     }
 
-    const contentType = contentTypes[paper.file_type] || 'application/octet-stream'
+    const contentType = contentTypes[paper.file_type.toLowerCase()] || 'application/octet-stream'
 
     // Generate download filename
     const downloadFilename = paper.original_filename || 
       `${paper.subject_code}_${paper.subject_name}.${paper.file_type}`
 
+    // Sanitize filename for the attachment header
+    const sanitizedFilename = downloadFilename.replace(/[/\\?%*:|"<>/]/g, '_')
+
     return new NextResponse(new Uint8Array(fileBuffer), {
       headers: {
         'Content-Type': contentType,
-        'Content-Disposition': `attachment; filename="${encodeURIComponent(downloadFilename)}"; filename*=UTF-8''${encodeURIComponent(downloadFilename)}`,
+        'Content-Disposition': `attachment; filename="${sanitizedFilename}"; filename*=UTF-8''${encodeURIComponent(downloadFilename)}`,
         'Content-Length': fileBuffer.length.toString(),
         'X-Content-Type-Options': 'nosniff',
         'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
       }
     })
   } catch (error) {
