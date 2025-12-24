@@ -53,11 +53,32 @@ export async function POST(request: Request) {
     console.log('📦 Extracting ZIP file...')
     await extractZipFile(buffer, tempDir)
 
-    // Find CSV file
-    const files = fs.readdirSync(tempDir)
-    const csvFile = files.find(f => f.toLowerCase().endsWith('.csv'))
+    // Find CSV file recursively
+    function findCSVFile(dir: string): string | null {
+      const items = fs.readdirSync(dir)
+      
+      // First check current directory
+      for (const item of items) {
+        if (item.toLowerCase().endsWith('.csv')) {
+          return path.join(dir, item)
+        }
+      }
+      
+      // Then check subdirectories
+      for (const item of items) {
+        const fullPath = path.join(dir, item)
+        if (fs.statSync(fullPath).isDirectory()) {
+          const found = findCSVFile(fullPath)
+          if (found) return found
+        }
+      }
+      
+      return null
+    }
     
-    if (!csvFile) {
+    const csvPath = findCSVFile(tempDir)
+    
+    if (!csvPath) {
       cleanupTempFiles(tempDir)
       return NextResponse.json(
         { error: 'No CSV file found in ZIP archive' },
@@ -67,11 +88,23 @@ export async function POST(request: Request) {
 
     // Parse CSV
     console.log('📄 Parsing CSV file...')
-    const csvPath = path.join(tempDir, csvFile)
     const csvContent = fs.readFileSync(csvPath, 'utf-8')
     const csvRows = parseCSV(csvContent)
 
     console.log(`Found ${csvRows.length} entries in CSV`)
+
+    // Log extracted directory structure
+    function logDirectoryStructure(dir: string, prefix = '') {
+      const items = fs.readdirSync(dir)
+      for (const item of items) {
+        const fullPath = path.join(dir, item)
+        if (fs.statSync(fullPath).isDirectory()) {
+          console.log(`${prefix}📁 ${item}/`)
+        }
+      }
+    }
+    console.log('📂 Extracted structure:')
+    logDirectoryStructure(tempDir, '  ')
 
     // Find all PDF files
     console.log('🔍 Finding PDF files...')

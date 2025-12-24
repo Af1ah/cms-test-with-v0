@@ -229,6 +229,7 @@ export async function getOrCreateSubjectType(typeCode: string): Promise<number |
  */
 export function findPDFFiles(directory: string): Map<string, string> {
   const pdfMap = new Map<string, string>()
+  const foldersWithPDFs = new Set<string>()
   
   function scanDirectory(dir: string) {
     const items = fs.readdirSync(dir)
@@ -245,12 +246,22 @@ export function findPDFFiles(directory: string): Map<string, string> {
         if (qpCodeMatch) {
           const qpCode = qpCodeMatch[1]
           pdfMap.set(qpCode, fullPath)
+          
+          // Track which folder this PDF is in
+          const folderName = path.basename(path.dirname(fullPath))
+          foldersWithPDFs.add(folderName)
         }
       }
     }
   }
   
   scanDirectory(directory)
+  
+  // Log folder structure
+  if (foldersWithPDFs.size > 0) {
+    console.log(`📁 Found PDFs in folders: ${Array.from(foldersWithPDFs).join(', ')}`)
+  }
+  
   return pdfMap
 }
 
