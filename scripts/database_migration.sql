@@ -46,6 +46,20 @@ INSERT INTO subject_types (name) VALUES
     ('Common Course')
 ON CONFLICT (name) DO NOTHING;
 
+-- Create program_types table
+CREATE TABLE IF NOT EXISTS program_types (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert default program types
+INSERT INTO program_types (name) VALUES 
+    ('CBCSS-UG'),
+    ('FYUGP'),
+    ('Integrated PG')
+ON CONFLICT (name) DO NOTHING;
+
 -- Create question_papers table
 CREATE TABLE IF NOT EXISTS question_papers (
     id SERIAL PRIMARY KEY,
@@ -55,6 +69,7 @@ CREATE TABLE IF NOT EXISTS question_papers (
     year_of_examination INTEGER NOT NULL,
     semester INTEGER NOT NULL CHECK (semester >= 1 AND semester <= 10),
     subject_type_id INTEGER REFERENCES subject_types(id) ON DELETE SET NULL,
+    program_type_id INTEGER REFERENCES program_types(id) ON DELETE SET NULL,
     department_id INTEGER REFERENCES departments(id) ON DELETE SET NULL,
     description TEXT,
     file_url TEXT NOT NULL,
@@ -73,6 +88,7 @@ CREATE INDEX IF NOT EXISTS idx_papers_year ON question_papers(year_of_examinatio
 CREATE INDEX IF NOT EXISTS idx_papers_semester ON question_papers(semester);
 CREATE INDEX IF NOT EXISTS idx_papers_department ON question_papers(department_id);
 CREATE INDEX IF NOT EXISTS idx_papers_subject_type ON question_papers(subject_type_id);
+CREATE INDEX IF NOT EXISTS idx_papers_program_type ON question_papers(program_type_id);
 CREATE INDEX IF NOT EXISTS idx_papers_created_at ON question_papers(created_at DESC);
 
 -- Full text search index for subject name (for autocomplete)

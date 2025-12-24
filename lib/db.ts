@@ -93,6 +93,24 @@ export async function initializeDatabase() {
         ON CONFLICT (name) DO NOTHING
       `)
 
+      // Create program_types table
+      await query(`
+        CREATE TABLE IF NOT EXISTS program_types (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255) UNIQUE NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
+
+      // Insert default program types
+      await query(`
+        INSERT INTO program_types (name) VALUES 
+          ('CBCSS-UG'),
+          ('FYUGP'),
+          ('Integrated PG')
+        ON CONFLICT (name) DO NOTHING
+      `)
+
       // Create question_papers table
       await query(`
         CREATE TABLE IF NOT EXISTS question_papers (
@@ -103,6 +121,7 @@ export async function initializeDatabase() {
           year_of_examination INTEGER NOT NULL,
           semester INTEGER NOT NULL CHECK (semester >= 1 AND semester <= 10),
           subject_type_id INTEGER REFERENCES subject_types(id) ON DELETE SET NULL,
+          program_type_id INTEGER REFERENCES program_types(id) ON DELETE SET NULL,
           department_id INTEGER REFERENCES departments(id) ON DELETE SET NULL,
           description TEXT,
           file_url TEXT NOT NULL,
@@ -122,6 +141,7 @@ export async function initializeDatabase() {
       await query(`CREATE INDEX IF NOT EXISTS idx_papers_semester ON question_papers(semester)`)
       await query(`CREATE INDEX IF NOT EXISTS idx_papers_department ON question_papers(department_id)`)
       await query(`CREATE INDEX IF NOT EXISTS idx_papers_subject_type ON question_papers(subject_type_id)`)
+      await query(`CREATE INDEX IF NOT EXISTS idx_papers_program_type ON question_papers(program_type_id)`)
       await query(`CREATE INDEX IF NOT EXISTS idx_papers_created_at ON question_papers(created_at DESC)`)
 
       console.log('Database tables initialized successfully')

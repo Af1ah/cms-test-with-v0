@@ -25,6 +25,11 @@ interface SubjectType {
     name: string
 }
 
+interface ProgramType {
+    id: number
+    name: string
+}
+
 export default function NewPaperPage() {
     const [subjectName, setSubjectName] = useState("")
     const [subjectCode, setSubjectCode] = useState("")
@@ -33,6 +38,7 @@ export default function NewPaperPage() {
     const [semester, setSemester] = useState("")
     const [departmentId, setDepartmentId] = useState("")
     const [subjectTypeId, setSubjectTypeId] = useState("")
+    const [programTypeId, setProgramTypeId] = useState("")
     const [description, setDescription] = useState("")
     const [error, setError] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(false)
@@ -40,10 +46,13 @@ export default function NewPaperPage() {
     const [isUploading, setIsUploading] = useState(false)
     const [departments, setDepartments] = useState<Department[]>([])
     const [subjectTypes, setSubjectTypes] = useState<SubjectType[]>([])
+    const [programTypes, setProgramTypes] = useState<ProgramType[]>([])
     const [showNewDepartment, setShowNewDepartment] = useState(false)
     const [showNewSubjectType, setShowNewSubjectType] = useState(false)
+    const [showNewProgramType, setShowNewProgramType] = useState(false)
     const [newDepartmentName, setNewDepartmentName] = useState("")
     const [newSubjectTypeName, setNewSubjectTypeName] = useState("")
+    const [newProgramTypeName, setNewProgramTypeName] = useState("")
     const [yearSuggestions, setYearSuggestions] = useState<number[]>([])
     const [isLoadingSubjectName, setIsLoadingSubjectName] = useState(false)
 
@@ -58,16 +67,18 @@ export default function NewPaperPage() {
         setYearSuggestions(years)
     }, [])
 
-    // Load departments and subject types on mount
+    // Load departments, subject types, and program types on mount
     useEffect(() => {
         const loadData = async () => {
             try {
-                const [deptRes, typeRes] = await Promise.all([
+                const [deptRes, typeRes, progRes] = await Promise.all([
                     fetch('/api/departments'),
-                    fetch('/api/subject-types')
+                    fetch('/api/subject-types'),
+                    fetch('/api/program-types')
                 ])
                 if (deptRes.ok) setDepartments(await deptRes.json())
                 if (typeRes.ok) setSubjectTypes(await typeRes.json())
+                if (progRes.ok) setProgramTypes(await progRes.json())
             } catch (err) {
                 console.error('Error loading data:', err)
             }
@@ -213,6 +224,29 @@ export default function NewPaperPage() {
         }
     }
 
+    // Create new program type
+    const handleCreateProgramType = async () => {
+        if (!newProgramTypeName.trim()) return
+
+        try {
+            const response = await fetch('/api/program-types', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newProgramTypeName.trim() })
+            })
+
+            if (response.ok) {
+                const type = await response.json()
+                setProgramTypes(prev => [...prev, type].sort((a, b) => a.name.localeCompare(b.name)))
+                setProgramTypeId(String(type.id))
+                setNewProgramTypeName("")
+                setShowNewProgramType(false)
+            }
+        } catch (err) {
+            console.error('Error creating program type:', err)
+        }
+    }
+
     const handleSubmit = useCallback(async (e: React.FormEvent) => {
         e.preventDefault()
         setIsLoading(true)
@@ -238,6 +272,7 @@ export default function NewPaperPage() {
                     semester: parseInt(semester),
                     department_id: departmentId ? parseInt(departmentId) : null,
                     subject_type_id: subjectTypeId ? parseInt(subjectTypeId) : null,
+                    program_type_id: programTypeId ? parseInt(programTypeId) : null,
                     description: description || null,
                     file_url: fileData.publicUrl,
                     file_type: fileData.fileType,
@@ -260,7 +295,7 @@ export default function NewPaperPage() {
             setLoading('crud', false)
             setIsUploading(false)
         }
-    }, [subjectName, subjectCode, paperCode, yearOfExamination, semester, departmentId, subjectTypeId, description, router, selectedFile, uploadFile, setLoading])
+    }, [subjectName, subjectCode, paperCode, yearOfExamination, semester, departmentId, subjectTypeId, programTypeId, description, router, selectedFile, uploadFile, setLoading])
 
     return (
         <div className="min-h-screen bg-background">
@@ -469,6 +504,51 @@ export default function NewPaperPage() {
                                                 Add
                                             </Button>
                                             <Button type="button" variant="outline" onClick={() => setShowNewSubjectType(false)}>
+                                                Cancel
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Program Type */}
+                                <div className="grid gap-2">
+                                    <Label>Program Type</Label>
+                                    {!showNewProgramType ? (
+                                        <div className="flex gap-2">
+                                            <Select value={programTypeId} onValueChange={setProgramTypeId} disabled={isLoading}>
+                                                <SelectTrigger className="flex-1">
+                                                    <SelectValue placeholder="Select program type" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {programTypes.map(type => (
+                                                        <SelectItem key={type.id} value={String(type.id)}>
+                                                            {type.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="icon"
+                                                onClick={() => setShowNewProgramType(true)}
+                                                disabled={isLoading}
+                                            >
+                                                <Plus className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex gap-2">
+                                            <Input
+                                                placeholder="Enter new program type"
+                                                value={newProgramTypeName}
+                                                onChange={(e) => setNewProgramTypeName(e.target.value)}
+                                                disabled={isLoading}
+                                            />
+                                            <Button type="button" onClick={handleCreateProgramType} disabled={isLoading || !newProgramTypeName.trim()}>
+                                                Add
+                                            </Button>
+                                            <Button type="button" variant="outline" onClick={() => setShowNewProgramType(false)}>
                                                 Cancel
                                             </Button>
                                         </div>

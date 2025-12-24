@@ -17,6 +17,7 @@ interface QuestionPaper {
     file_type: string
     department_name?: string | null
     subject_type_name?: string | null
+    program_type_name?: string | null
     created_at?: string
 }
 
@@ -64,6 +65,11 @@ export function PaperCard({ paper }: PaperCardProps) {
                             {paper.subject_type_name && (
                                 <span className="text-primary/60 font-bold uppercase tracking-tighter">
                                     {paper.subject_type_name}
+                                </span>
+                            )}
+                            {paper.program_type_name && (
+                                <span className="text-emerald-600/70 font-bold uppercase tracking-tighter">
+                                    {paper.program_type_name}
                                 </span>
                             )}
                         </div>

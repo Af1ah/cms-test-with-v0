@@ -20,6 +20,7 @@ interface QuestionPaper {
     file_type: string
     department_name: string | null
     subject_type_name: string | null
+    program_type_name: string | null
     created_at: string
 }
 
@@ -29,10 +30,12 @@ const getPaper = cache(async (id: string): Promise<QuestionPaper | null> => {
     const papers = await query<QuestionPaper>(
         `SELECT qp.*, 
             d.name as department_name, 
-            st.name as subject_type_name
+            st.name as subject_type_name,
+            pt.name as program_type_name
      FROM question_papers qp
      LEFT JOIN departments d ON qp.department_id = d.id
      LEFT JOIN subject_types st ON qp.subject_type_id = st.id
+     LEFT JOIN program_types pt ON qp.program_type_id = pt.id
      WHERE qp.id = $1`,
         [id]
     )
@@ -52,7 +55,9 @@ export async function generateMetadata(
     }
 
     const title = `${paper.subject_name} (${paper.subject_code}) - ${paper.year_of_examination} Sem ${paper.semester} | GC Tanur`
-    const description = `Download Calicut University (UoC) ${paper.year_of_examination} ${paper.semester}th Semester ${paper.subject_type_name} question paper for ${paper.subject_name} (${paper.subject_code}). Part of FYUGP curriculum at Government College Tanur.`
+    const programTypeText = paper.program_type_name ? `${paper.program_type_name} ` : ''
+    const subjectTypeText = paper.subject_type_name ? `${paper.subject_type_name} ` : ''
+    const description = `Download Calicut University (UoC) ${paper.year_of_examination} ${paper.semester}th Semester ${programTypeText}${subjectTypeText}question paper for ${paper.subject_name} (${paper.subject_code}). ${paper.department_name ? `${paper.department_name} department. ` : ''}Government College Tanur.`
 
     return {
         title,
@@ -60,7 +65,7 @@ export async function generateMetadata(
         keywords: [
             "Calicut University",
             "UoC",
-            "FYUGP",
+            paper.program_type_name || "",
             paper.subject_name,
             paper.subject_code,
             `Semester ${paper.semester}`,
@@ -123,9 +128,16 @@ export default async function PaperPage({ params }: { params: { id: string } }) 
                             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                                 <div>
                                     <div className="flex items-center gap-3 mb-4">
-                                        <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-                                            {paper.subject_type_name || 'Question Paper'}
-                                        </Badge>
+                                        {paper.subject_type_name && (
+                                            <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
+                                                {paper.subject_type_name}
+                                            </Badge>
+                                        )}
+                                        {paper.program_type_name && (
+                                            <Badge variant="secondary" className="bg-emerald-600/10 text-emerald-700 border-emerald-600/20">
+                                                {paper.program_type_name}
+                                            </Badge>
+                                        )}
                                         <Badge variant="outline" className="font-mono">
                                             {paper.subject_code}
                                         </Badge>
@@ -134,7 +146,7 @@ export default async function PaperPage({ params }: { params: { id: string } }) 
                                         {paper.subject_name}
                                     </h1>
                                     <p className="text-lg text-muted-foreground">
-                                        Calicut University • {paper.department_name} • FYUGP
+                                        Calicut University • {paper.department_name} {paper.program_type_name && `• ${paper.program_type_name}`}
                                     </p>
                                 </div>
                                 <Button asChild size="lg" className="h-14 px-8 shadow-md">

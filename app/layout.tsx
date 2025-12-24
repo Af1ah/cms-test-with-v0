@@ -87,6 +87,7 @@ export default function RootLayout({
         {/* Theme color */}
         <meta name="theme-color" content="#4f46e5" />
         {/* Structured Data */}
+        <link rel="icon" href="/fav.png" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

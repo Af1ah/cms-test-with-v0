@@ -22,6 +22,11 @@ interface SubjectType {
     name: string
 }
 
+interface ProgramType {
+    id: number
+    name: string
+}
+
 interface QuestionPaper {
     id: number
     subject_name: string
@@ -30,6 +35,7 @@ interface QuestionPaper {
     year_of_examination: number
     semester: number
     subject_type_id: number | null
+    program_type_id: number | null
     department_id: number | null
     description: string | null
     file_url: string
@@ -48,24 +54,29 @@ export default function EditPaperPage() {
     const [semester, setSemester] = useState("")
     const [departmentId, setDepartmentId] = useState("")
     const [subjectTypeId, setSubjectTypeId] = useState("")
+    const [programTypeId, setProgramTypeId] = useState("")
     const [description, setDescription] = useState("")
     const [error, setError] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(false)
     const [isLoadingData, setIsLoadingData] = useState(true)
     const [departments, setDepartments] = useState<Department[]>([])
     const [subjectTypes, setSubjectTypes] = useState<SubjectType[]>([])
+    const [programTypes, setProgramTypes] = useState<ProgramType[]>([])
     const [showNewDepartment, setShowNewDepartment] = useState(false)
     const [showNewSubjectType, setShowNewSubjectType] = useState(false)
+    const [showNewProgramType, setShowNewProgramType] = useState(false)
     const [newDepartmentName, setNewDepartmentName] = useState("")
     const [newSubjectTypeName, setNewSubjectTypeName] = useState("")
+    const [newProgramTypeName, setNewProgramTypeName] = useState("")
 
     useEffect(() => {
         const loadData = async () => {
             try {
-                const [paperRes, deptRes, typeRes] = await Promise.all([
+                const [paperRes, deptRes, typeRes, progRes] = await Promise.all([
                     fetch(`/api/papers/${params.id}`),
                     fetch('/api/departments'),
-                    fetch('/api/subject-types')
+                    fetch('/api/subject-types'),
+                    fetch('/api/program-types')
                 ])
 
                 if (!paperRes.ok) throw new Error('Paper not found')
@@ -79,10 +90,12 @@ export default function EditPaperPage() {
                 setSemester(String(paperData.semester))
                 setDepartmentId(paperData.department_id ? String(paperData.department_id) : "")
                 setSubjectTypeId(paperData.subject_type_id ? String(paperData.subject_type_id) : "")
+                setProgramTypeId(paperData.program_type_id ? String(paperData.program_type_id) : "")
                 setDescription(paperData.description || "")
 
                 if (deptRes.ok) setDepartments(await deptRes.json())
                 if (typeRes.ok) setSubjectTypes(await typeRes.json())
+                if (progRes.ok) setProgramTypes(await progRes.json())
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Error loading paper')
             } finally {
@@ -132,6 +145,26 @@ export default function EditPaperPage() {
         }
     }
 
+    const handleCreateProgramType = async () => {
+        if (!newProgramTypeName.trim()) return
+        try {
+            const response = await fetch('/api/program-types', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newProgramTypeName.trim() })
+            })
+            if (response.ok) {
+                const type = await response.json()
+                setProgramTypes(prev => [...prev, type].sort((a, b) => a.name.localeCompare(b.name)))
+                setProgramTypeId(String(type.id))
+                setNewProgramTypeName("")
+                setShowNewProgramType(false)
+            }
+        } catch (err) {
+            console.error('Error creating program type:', err)
+        }
+    }
+
     const handleSubmit = useCallback(async (e: React.FormEvent) => {
         e.preventDefault()
         if (!paper) return
@@ -151,6 +184,7 @@ export default function EditPaperPage() {
                     semester: parseInt(semester),
                     department_id: departmentId ? parseInt(departmentId) : null,
                     subject_type_id: subjectTypeId ? parseInt(subjectTypeId) : null,
+                    program_type_id: programTypeId ? parseInt(programTypeId) : null,
                     description: description || null,
                     file_url: paper.file_url,
                     file_type: paper.file_type,
@@ -170,7 +204,7 @@ export default function EditPaperPage() {
         } finally {
             setIsLoading(false)
         }
-    }, [paper, params.id, subjectName, subjectCode, paperCode, yearOfExamination, semester, departmentId, subjectTypeId, description, router])
+    }, [paper, params.id, subjectName, subjectCode, paperCode, yearOfExamination, semester, departmentId, subjectTypeId, programTypeId, description, router])
 
     if (isLoadingData) {
         return (
@@ -350,6 +384,39 @@ export default function EditPaperPage() {
                                             />
                                             <Button type="button" onClick={handleCreateSubjectType}>Add</Button>
                                             <Button type="button" variant="outline" onClick={() => setShowNewSubjectType(false)}>Cancel</Button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label>Program Type</Label>
+                                    {!showNewProgramType ? (
+                                        <div className="flex gap-2">
+                                            <Select value={programTypeId} onValueChange={setProgramTypeId} disabled={isLoading}>
+                                                <SelectTrigger className="flex-1">
+                                                    <SelectValue placeholder="Select program type" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {programTypes.map(type => (
+                                                        <SelectItem key={type.id} value={String(type.id)}>
+                                                            {type.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <Button type="button" variant="outline" size="icon" onClick={() => setShowNewProgramType(true)}>
+                                                <Plus className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex gap-2">
+                                            <Input
+                                                placeholder="New program type"
+                                                value={newProgramTypeName}
+                                                onChange={(e) => setNewProgramTypeName(e.target.value)}
+                                            />
+                                            <Button type="button" onClick={handleCreateProgramType}>Add</Button>
+                                            <Button type="button" variant="outline" onClick={() => setShowNewProgramType(false)}>Cancel</Button>
                                         </div>
                                     )}
                                 </div>

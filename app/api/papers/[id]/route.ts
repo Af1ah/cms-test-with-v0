@@ -11,6 +11,7 @@ interface QuestionPaper {
   year_of_examination: number
   semester: number
   subject_type_id: number | null
+  program_type_id: number | null
   department_id: number | null
   description: string | null
   file_url: string
@@ -20,6 +21,7 @@ interface QuestionPaper {
   created_at: string
   department_name?: string
   subject_type_name?: string
+  program_type_name?: string
 }
 
 // GET /api/papers/[id] - Get a single paper
@@ -34,10 +36,12 @@ export async function GET(
     const papers = await query<QuestionPaper>(
       `SELECT qp.*, 
               d.name as department_name, 
-              st.name as subject_type_name
+              st.name as subject_type_name,
+              pt.name as program_type_name
        FROM question_papers qp
        LEFT JOIN departments d ON qp.department_id = d.id
        LEFT JOIN subject_types st ON qp.subject_type_id = st.id
+       LEFT JOIN program_types pt ON qp.program_type_id = pt.id
        WHERE qp.id = $1`,
       [id]
     )
@@ -105,6 +109,7 @@ export async function PUT(
       year_of_examination,
       semester,
       subject_type_id,
+      program_type_id,
       department_id,
       description, 
       file_url,
@@ -123,14 +128,14 @@ export async function PUT(
       `UPDATE question_papers 
        SET subject_name = $1, subject_code = $2, paper_code = $3, 
            year_of_examination = $4, semester = $5, subject_type_id = $6, 
-           department_id = $7, description = $8, file_url = $9, 
-           file_type = $10, original_filename = $11, updated_at = NOW() 
-       WHERE id = $12 
+           program_type_id = $7, department_id = $8, description = $9, file_url = $10, 
+           file_type = $11, original_filename = $12, updated_at = NOW() 
+       WHERE id = $13 
        RETURNING *`,
       [
         subject_name, subject_code, paper_code || null,
         year_of_examination, semester, subject_type_id || null,
-        department_id || null, description || null, file_url,
+        program_type_id || null, department_id || null, description || null, file_url,
         file_type, original_filename || null, id
       ]
     )

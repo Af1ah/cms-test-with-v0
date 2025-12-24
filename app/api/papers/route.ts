@@ -10,6 +10,7 @@ interface QuestionPaper {
   year_of_examination: number
   semester: number
   subject_type_id: number | null
+  program_type_id: number | null
   department_id: number | null
   description: string | null
   file_url: string
@@ -20,6 +21,7 @@ interface QuestionPaper {
   // Joined fields
   department_name?: string
   subject_type_name?: string
+  program_type_name?: string
 }
 
 export async function GET(request: Request) {
@@ -32,15 +34,18 @@ export async function GET(request: Request) {
     const semester = searchParams.get("semester")
     const departmentId = searchParams.get("department_id")
     const subjectTypeId = searchParams.get("subject_type_id")
+    const programTypeId = searchParams.get("program_type_id")
     const limit = searchParams.get("limit")
 
     let sql = `
       SELECT qp.*, 
              d.name as department_name, 
-             st.name as subject_type_name
+             st.name as subject_type_name,
+             pt.name as program_type_name
       FROM question_papers qp
       LEFT JOIN departments d ON qp.department_id = d.id
       LEFT JOIN subject_types st ON qp.subject_type_id = st.id
+      LEFT JOIN program_types pt ON qp.program_type_id = pt.id
     `
     const params: unknown[] = []
     const conditions: string[] = []
@@ -73,6 +78,11 @@ export async function GET(request: Request) {
     if (subjectTypeId) {
       conditions.push(`qp.subject_type_id = $${params.length + 1}`)
       params.push(parseInt(subjectTypeId))
+    }
+
+    if (programTypeId) {
+      conditions.push(`qp.program_type_id = $${params.length + 1}`)
+      params.push(parseInt(programTypeId))
     }
 
     if (conditions.length > 0) {
@@ -120,6 +130,7 @@ export async function POST(request: Request) {
       year_of_examination,
       semester,
       subject_type_id,
+      program_type_id,
       department_id,
       description, 
       file_url,
@@ -146,10 +157,10 @@ export async function POST(request: Request) {
     const papers = await query<QuestionPaper>(
       `INSERT INTO question_papers (
         subject_name, subject_code, paper_code, year_of_examination, 
-        semester, subject_type_id, department_id, description, 
+        semester, subject_type_id, program_type_id, department_id, description, 
         file_url, file_type, original_filename, created_by
       ) 
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
       RETURNING *`,
       [
         subject_name, 
@@ -157,7 +168,8 @@ export async function POST(request: Request) {
         paper_code || null, 
         year_of_examination,
         semester,
-        subject_type_id || null, 
+        subject_type_id || null,
+        program_type_id || null, 
         department_id || null, 
         description || null, 
         file_url, 
