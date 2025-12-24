@@ -106,6 +106,9 @@ export default async function AdminDashboardPage() {
                 <Link href="/admin/papers/new">Upload New Paper</Link>
               </Button>
               <Button asChild variant="outline" className="w-full bg-transparent">
+                <Link href="/admin/papers/bulk-upload">Bulk Upload</Link>
+              </Button>
+              <Button asChild variant="outline" className="w-full bg-transparent">
                 <Link href="/admin/papers">View All Papers</Link>
               </Button>
             </CardContent>

@@ -55,9 +55,14 @@ export default async function AdminPapersPage() {
                         <h1 className="text-2xl sm:text-3xl font-bold mb-2">Manage Question Papers</h1>
                         <p className="text-sm sm:text-base text-muted-foreground">Add, edit, or remove question papers from the repository</p>
                     </div>
-                    <Button asChild className="w-full sm:w-auto">
-                        <Link href="/admin/papers/new">Upload New Paper</Link>
-                    </Button>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                        <Button asChild variant="outline" className="w-full sm:w-auto">
+                            <Link href="/admin/papers/bulk-upload">Bulk Upload</Link>
+                        </Button>
+                        <Button asChild className="w-full sm:w-auto">
+                            <Link href="/admin/papers/new">Upload New Paper</Link>
+                        </Button>
+                    </div>
                 </div>
 
                 {papers && papers.length > 0 ? (
