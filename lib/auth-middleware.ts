@@ -18,11 +18,21 @@ export async function updateSession(request: NextRequest) {
   let userRole = ''
   if (token) {
     try {
-      const { payload } = await jwtVerify(token, JWT_SECRET)
+      // Add timeout for JWT verification (2 seconds)
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('JWT verification timeout')), 2000)
+      })
+      
+      const verifyPromise = jwtVerify(token, JWT_SECRET)
+      
+      const { payload } = await Promise.race([verifyPromise, timeoutPromise])
       isAuthenticated = true
       userRole = (payload.role as string) || ''
-    } catch {
-      // Token is invalid or expired
+    } catch (error) {
+      // Token is invalid, expired, or verification timed out
+      if (error instanceof Error && error.message.includes('timeout')) {
+        console.warn('⚠️ JWT verification timeout in middleware')
+      }
     }
   }
 

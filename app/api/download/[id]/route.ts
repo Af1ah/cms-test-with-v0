@@ -36,16 +36,39 @@ export async function GET(
 
     const paper = papers[0]
 
-    // Build file path
+    // Build file path - handle both old and new file structures
     const fileName = path.basename(paper.file_url)
-    const filePath = path.join(process.cwd(), 'public', 'uploads', 'papers', fileName)
+    
+    // Try new path first (/public/uploads/papers/)
+    let filePath = path.join(process.cwd(), 'public', 'uploads', 'papers', fileName)
+    
+    // If not found, try old path (/public/uploads/)
+    if (!existsSync(filePath)) {
+      filePath = path.join(process.cwd(), 'public', 'uploads', fileName)
+      console.log(`📁 Trying old path: ${filePath}`)
+    }
+    
+    // If still not found, try the exact path from database
+    if (!existsSync(filePath)) {
+      filePath = path.join(process.cwd(), 'public', paper.file_url)
+      console.log(`📁 Trying database path: ${filePath}`)
+    }
 
     if (!existsSync(filePath)) {
+      console.error(`❌ File not found for paper ${id}:`)
+      console.error(`   Database URL: ${paper.file_url}`)
+      console.error(`   Tried paths:`)
+      console.error(`   - ${path.join(process.cwd(), 'public', 'uploads', 'papers', fileName)}`)
+      console.error(`   - ${path.join(process.cwd(), 'public', 'uploads', fileName)}`)
+      console.error(`   - ${path.join(process.cwd(), 'public', paper.file_url)}`)
+      
       return NextResponse.json(
-        { error: "File not found" },
+        { error: "File not found on server. Please contact administrator." },
         { status: 404 }
       )
     }
+
+    console.log(`✅ Found file: ${filePath}`)
 
     // Read file
     const fileBuffer = await readFile(filePath)
@@ -78,7 +101,7 @@ export async function GET(
   } catch (error) {
     console.error("Error downloading paper:", error)
     return NextResponse.json(
-      { error: "Failed to download paper" },
+      { error: "Failed to download paper", details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

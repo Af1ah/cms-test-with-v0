@@ -2,10 +2,19 @@ import bcrypt from 'bcryptjs'
 import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { query } from './db'
+import { query, checkDatabaseHealth } from './db'
+import { validateEnv } from './env-validation'
+
+// Validate environment on module load
+let envConfig: ReturnType<typeof validateEnv> | null = null
+try {
+  envConfig = validateEnv()
+} catch (error) {
+  console.error('❌ Environment validation failed:', error)
+}
 
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'your-super-secret-jwt-key-min-32-chars-long'
+  envConfig?.jwtSecret || process.env.JWT_SECRET || 'your-super-secret-jwt-key-min-32-chars-long'
 )
 
 const SALT_ROUNDS = 12
@@ -53,14 +62,28 @@ export async function createToken(user: User): Promise<string> {
 }
 
 export async function verifyToken(token: string): Promise<JWTPayload | null> {
+  const timeout = 2000 // 2 seconds timeout for token verification
+  
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET)
+    // Create timeout promise
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Token verification timeout')), timeout)
+    })
+
+    // Race between verification and timeout
+    const { payload } = await Promise.race([
+      jwtVerify(token, JWT_SECRET),
+      timeoutPromise
+    ])
+    
     return payload as unknown as JWTPayload
   } catch (error) {
     // Don't log expected errors (expired tokens, invalid format)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    if (!errorMessage.includes('expired') && !errorMessage.includes('invalid')) {
-      console.error('Token verification failed:', error)
+    if (!errorMessage.includes('expired') && 
+        !errorMessage.includes('invalid') && 
+        !errorMessage.includes('timeout')) {
+      console.error('❌ Token verification failed:', error)
     }
     return null
   }
@@ -124,14 +147,23 @@ export async function getCurrentUser(): Promise<User | null> {
       return null
     }
 
-    const users = await query<User>(
-      'SELECT id, email, name, role, created_at FROM users WHERE id = $1',
-      [payload.userId]
-    )
+    // Add timeout for database query
+    const timeout = 5000 // 5 seconds
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('User query timeout')), timeout)
+    })
+
+    const users = await Promise.race([
+      query<User>(
+        'SELECT id, email, name, role, created_at FROM users WHERE id = $1',
+        [payload.userId]
+      ),
+      timeoutPromise
+    ])
 
     return users[0] || null
   } catch (error) {
-    console.error('Error getting current user:', error)
+    console.error('❌ Error getting current user:', error)
     return null
   }
 }
@@ -156,11 +188,22 @@ export async function createUser(
 }
 
 export async function getUserByEmail(email: string): Promise<(User & { password_hash: string }) | null> {
-  const users = await query<User & { password_hash: string }>(
-    'SELECT id, email, password_hash, name, role, created_at FROM users WHERE email = $1',
-    [email]
-  )
-  return users[0] || null
+  try {
+    // Check database health before querying
+    const isHealthy = await checkDatabaseHealth()
+    if (!isHealthy) {
+      throw new Error('Database connection is not healthy')
+    }
+
+    const users = await query<User & { password_hash: string }>(
+      'SELECT id, email, password_hash, name, role, created_at FROM users WHERE email = $1',
+      [email]
+    )
+    return users[0] || null
+  } catch (error) {
+    console.error('❌ Error getting user by email:', error)
+    throw error
+  }
 }
 
 export async function getUserCount(): Promise<number> {

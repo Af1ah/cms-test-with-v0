@@ -1,28 +1,95 @@
-import { Pool } from 'pg'
+import { Pool, PoolClient } from 'pg'
 
-// Create a connection pool to PostgreSQL
+// Create a connection pool to PostgreSQL with Vercel-friendly limits
 const pool = new Pool({
   user: process.env.DB_USER || 'postgres',
   host: process.env.DB_HOST || 'localhost',
   database: process.env.DB_NAME || '',
   password: process.env.DB_PASSWORD || '',
   port: parseInt(process.env.DB_PORT || '5432'),
+  // Vercel serverless function limits
+  max: 10, // Maximum number of clients in the pool
+  min: 0, // Minimum number of clients
+  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+  connectionTimeoutMillis: 5000, // Timeout for acquiring connection (5 seconds)
+  // Query timeout
+  statement_timeout: 10000, // 10 seconds max for any query
 })
 
 // Test the connection
 pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err)
-  process.exit(-1)
+  console.error('❌ Unexpected error on idle client', err)
+  // Don't exit in serverless environment
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(-1)
+  }
 })
 
+pool.on('connect', () => {
+  if (process.env.NODE_ENV === 'development') {
+    console.log('✅ Database client connected')
+  }
+})
+
+pool.on('remove', () => {
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔌 Database client removed from pool')
+  }
+})
+
+/**
+ * Execute a query with timeout protection
+ */
 export async function query<T = unknown>(text: string, params?: unknown[]): Promise<T[]> {
   const start = Date.now()
+  const timeout = 10000 // 10 seconds
+
   try {
-    const res = await pool.query(text, params)
+    // Create a timeout promise
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Query timeout exceeded')), timeout)
+    })
+
+    // Race between query and timeout
+    const res = await Promise.race([
+      pool.query(text, params),
+      timeoutPromise
+    ])
+
+    const duration = Date.now() - start
+    if (duration > 1000 && process.env.NODE_ENV === 'development') {
+      console.warn(`⚠️ Slow query (${duration}ms): ${text.substring(0, 100)}`)
+    }
+
     return res.rows as T[]
   } catch (error) {
-    console.error('Database query error:', error)
+    const duration = Date.now() - start
+    console.error(`❌ Database query error (${duration}ms):`, error)
+    
+    // Provide more specific error messages
+    if (error instanceof Error) {
+      if (error.message.includes('timeout')) {
+        throw new Error('Database query timed out. Please try again.')
+      }
+      if (error.message.includes('connection')) {
+        throw new Error('Database connection failed. Please check your connection.')
+      }
+    }
+    
     throw error
+  }
+}
+
+/**
+ * Check database connection health
+ */
+export async function checkDatabaseHealth(): Promise<boolean> {
+  try {
+    await query('SELECT 1')
+    return true
+  } catch (error) {
+    console.error('❌ Database health check failed:', error)
+    return false
   }
 }
 

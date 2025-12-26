@@ -20,6 +20,7 @@ export default function AdminLoginPage() {
   const [rememberMe, setRememberMe] = useState(true)
   const [isInitializing, setIsInitializing] = useState(true)
   const [isValidating, setIsValidating] = useState(false)
+  const [loginAttemptInProgress, setLoginAttemptInProgress] = useState(false)
   const router = useRouter()
   const { setLoading } = useGlobalLoading()
 
@@ -45,23 +46,68 @@ export default function AdminLoginPage() {
 
   const handleLogin = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Prevent multiple simultaneous login attempts
+    if (loginAttemptInProgress) {
+      console.log("[Auth] Login already in progress, ignoring duplicate request")
+      return
+    }
+
+    setLoginAttemptInProgress(true)
     setIsLoading(true)
     setLoading('auth', true)
     setError(null)
 
+    const requestTimeout = 15000 // 15 seconds client-side timeout
+    const abortController = new AbortController()
+
     try {
       console.log("[Auth] Attempting login for:", email)
 
-      const response = await fetch('/api/auth/login', {
+      // Create timeout promise
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          abortController.abort()
+          reject(new Error('CLIENT_TIMEOUT'))
+        }, requestTimeout)
+      })
+
+      // Create fetch promise
+      const fetchPromise = fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
+        signal: abortController.signal,
       })
 
+      // Race between fetch and timeout
+      const response = await Promise.race([fetchPromise, timeoutPromise])
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Login failed')
+        // Handle specific error codes
+        const errorCode = data.code || 'UNKNOWN'
+        let errorMessage = data.error || 'Login failed'
+
+        switch (errorCode) {
+          case 'RATE_LIMIT':
+            errorMessage = '⏱️ Too many attempts. Please wait a minute and try again.'
+            break
+          case 'DB_UNHEALTHY':
+          case 'DB_ERROR':
+            errorMessage = '🔌 Database connection issue. Please try again in a moment.'
+            break
+          case 'TIMEOUT':
+            errorMessage = '⏰ Request timed out. Please check your connection and try again.'
+            break
+          case 'INVALID_CREDENTIALS':
+            errorMessage = '❌ Invalid email or password. Please check your credentials.'
+            break
+          default:
+            errorMessage = data.error || 'Login failed. Please try again.'
+        }
+
+        throw new Error(errorMessage)
       }
 
       console.log("[Auth] Login successful for:", data.user?.email)
@@ -78,13 +124,26 @@ export default function AdminLoginPage() {
       router.refresh()
     } catch (error: unknown) {
       console.log("[Auth] Login failed:", error)
-      const errorMessage = error instanceof Error ? error.message : "An error occurred"
+
+      let errorMessage = "An error occurred"
+
+      if (error instanceof Error) {
+        if (error.message === 'CLIENT_TIMEOUT') {
+          errorMessage = '⏰ Login is taking too long. Please check your connection and try again.'
+        } else if (error.name === 'AbortError') {
+          errorMessage = '⏰ Request timed out. Please try again.'
+        } else {
+          errorMessage = error.message
+        }
+      }
+
       setError(errorMessage)
     } finally {
       setIsLoading(false)
       setLoading('auth', false)
+      setLoginAttemptInProgress(false)
     }
-  }, [email, password, rememberMe, router, setLoading])
+  }, [email, password, rememberMe, router, setLoading, loginAttemptInProgress])
 
   // Show loading state on initial load
   if (isInitializing) {
