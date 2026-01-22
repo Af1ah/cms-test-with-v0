@@ -19,6 +19,7 @@ yarn-error.log*
 # env files
 .env*
 !.env.example
+scripts/setup-secure-storage.sh
 
 # vercel
 .vercel

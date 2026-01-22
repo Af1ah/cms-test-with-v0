@@ -4,7 +4,7 @@ import { uploadFile, validateFile } from '@/lib/storage'
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
+    // Check authentication - only authenticated users can upload
     const user = await getCurrentUser()
     if (!user) {
       return NextResponse.json(
@@ -33,14 +33,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Upload file
+    // Upload file to secure storage
     const result = await uploadFile(file)
 
+    // Return only file ID (UUID), never expose system paths
     return NextResponse.json({
       success: true,
-      path: result.path,
-      publicUrl: result.publicUrl,
-      fileName: result.fileName
+      fileId: result.fileId,
+      fileType: result.fileType,
+      // Note: No path or publicUrl exposed - files served via /api/download only
     })
   } catch (error) {
     console.error('Upload error:', error)

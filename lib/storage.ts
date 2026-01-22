@@ -1,9 +1,11 @@
-import { writeFile, unlink, mkdir } from 'fs/promises'
+import { writeFile, unlink, mkdir, readFile } from 'fs/promises'
 import { existsSync } from 'fs'
 import path from 'path'
+import crypto from 'crypto'
 
-const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'papers')
-const PUBLIC_PATH = '/uploads/papers'
+// Secure storage directory (outside web root)
+const STORAGE_PATH = process.env.STORAGE_PATH || path.join(process.cwd(), 'uploads')
+const UPLOAD_DIR = path.join(STORAGE_PATH, 'papers')
 
 // Allowed file types for question papers
 const ALLOWED_TYPES = [
@@ -14,9 +16,7 @@ const ALLOWED_TYPES = [
 const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB for documents
 
 export interface UploadResult {
-  path: string
-  publicUrl: string
-  fileName: string
+  fileId: string      // UUID - the only identifier exposed externally
   fileType: string
   originalName: string
 }
@@ -24,6 +24,12 @@ export interface UploadResult {
 export interface ValidationResult {
   isValid: boolean
   error?: string
+}
+
+export interface FileInfo {
+  buffer: Buffer
+  mimeType: string
+  originalName: string
 }
 
 // Get file extension from MIME type
@@ -46,19 +52,28 @@ function getFileType(mimeType: string): string {
   return types[mimeType] || 'unknown'
 }
 
-// Ensure upload directory exists
+// Get MIME type from file extension
+function getMimeType(fileType: string): string {
+  const mimes: Record<string, string> = {
+    'pdf': 'application/pdf',
+    'doc': 'application/msword',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  }
+  return mimes[fileType.toLowerCase()] || 'application/octet-stream'
+}
+
+// Ensure upload directory exists with proper permissions
 async function ensureUploadDir() {
   if (!existsSync(UPLOAD_DIR)) {
-    await mkdir(UPLOAD_DIR, { recursive: true })
+    await mkdir(UPLOAD_DIR, { recursive: true, mode: 0o750 })
   }
 }
 
-// Generate unique filename
-function generateFileName(originalName: string, mimeType: string): string {
-  const ext = getFileExtension(mimeType) || path.extname(originalName).toLowerCase()
-  const timestamp = Date.now()
-  const random = Math.random().toString(36).substring(2, 11)
-  return `${timestamp}-${random}${ext}`
+// Generate secure UUID filename (no information leakage)
+function generateSecureFileName(mimeType: string): string {
+  const uuid = crypto.randomUUID()
+  const ext = getFileExtension(mimeType)
+  return `${uuid}${ext}`
 }
 
 // Validate file before upload
@@ -82,8 +97,8 @@ export function validateFile(file: File): ValidationResult {
   return { isValid: true }
 }
 
-// Upload file to local storage
-export async function uploadFile(file: File, customFileName?: string): Promise<UploadResult> {
+// Upload file to secure storage (returns only UUID, no path exposure)
+export async function uploadFile(file: File): Promise<UploadResult> {
   // Validate file
   const validation = validateFile(file)
   if (!validation.isValid) {
@@ -93,36 +108,66 @@ export async function uploadFile(file: File, customFileName?: string): Promise<U
   // Ensure upload directory exists
   await ensureUploadDir()
 
-  // Generate filename
-  const fileName = customFileName || generateFileName(file.name, file.type)
+  // Generate secure filename with UUID
+  const fileName = generateSecureFileName(file.type)
   const filePath = path.join(UPLOAD_DIR, fileName)
 
   // Convert File to Buffer and save
   const bytes = await file.arrayBuffer()
   const uint8Array = new Uint8Array(bytes)
-  await writeFile(filePath, uint8Array)
+  await writeFile(filePath, uint8Array, { mode: 0o640 }) // Owner read/write, group read
 
-  console.log('✅ File uploaded successfully:', fileName)
+  console.log('✅ File uploaded securely:', fileName)
 
+  // Return only the UUID-based file ID (no path exposure)
   return {
-    path: filePath,
-    publicUrl: `${PUBLIC_PATH}/${fileName}`,
-    fileName,
+    fileId: fileName, // This is the UUID.ext format
     fileType: getFileType(file.type),
     originalName: file.name
   }
 }
 
-// Delete file from local storage
-export async function deleteFile(fileUrl: string): Promise<void> {
+// Read file from secure storage (for API-based serving)
+export async function readSecureFile(fileId: string): Promise<FileInfo | null> {
   try {
-    // Extract filename from URL
-    const fileName = path.basename(fileUrl)
-    const filePath = path.join(UPLOAD_DIR, fileName)
+    // Sanitize filename to prevent path traversal attacks
+    const sanitizedFileId = path.basename(fileId)
+    const filePath = path.join(UPLOAD_DIR, sanitizedFileId)
+
+    // Check if file exists
+    if (!existsSync(filePath)) {
+      console.error('❌ File not found:', sanitizedFileId)
+      return null
+    }
+
+    // Read file
+    const buffer = await readFile(filePath)
+    
+    // Determine MIME type from extension
+    const ext = path.extname(sanitizedFileId).slice(1)
+    const mimeType = getMimeType(ext)
+
+    return {
+      buffer,
+      mimeType,
+      originalName: sanitizedFileId
+    }
+  } catch (error) {
+    console.error('❌ Error reading file:', error)
+    return null
+  }
+}
+
+// Delete file from secure storage
+export async function deleteFile(fileId: string): Promise<void> {
+  try {
+    // Sanitize filename to prevent path traversal attacks
+    const sanitizedFileId = path.basename(fileId)
+    const filePath = path.join(UPLOAD_DIR, sanitizedFileId)
 
     if (existsSync(filePath)) {
       await unlink(filePath)
-      console.log('✅ File deleted successfully:', fileName)
+      console.log('✅ File deleted securely:', sanitizedFileId)
     }
   } catch (error) {
     console.error('Error deleting file:', error)
@@ -130,22 +175,11 @@ export async function deleteFile(fileUrl: string): Promise<void> {
   }
 }
 
-// Extract filename from public URL
-export function extractFileNameFromUrl(url: string): string | null {
-  try {
-    if (url.startsWith(PUBLIC_PATH)) {
-      return path.basename(url)
-    }
-    const urlObj = new URL(url, 'http://localhost')
-    return path.basename(urlObj.pathname)
-  } catch {
-    return null
-  }
-}
-
-// Get public URL for a filename
-export function getPublicUrl(fileName: string): string {
-  return `${PUBLIC_PATH}/${fileName}`
+// Check if file exists
+export function fileExists(fileId: string): boolean {
+  const sanitizedFileId = path.basename(fileId)
+  const filePath = path.join(UPLOAD_DIR, sanitizedFileId)
+  return existsSync(filePath)
 }
 
 // Storage service class for compatibility
@@ -153,6 +187,6 @@ export class StorageService {
   static validateFile = validateFile
   static uploadFile = uploadFile
   static deleteFile = deleteFile
-  static extractPathFromUrl = extractFileNameFromUrl
-  static getPublicUrl = getPublicUrl
+  static readSecureFile = readSecureFile
+  static fileExists = fileExists
 }

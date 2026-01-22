@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { query, initializeDatabase } from "@/lib/db"
-import { readFile } from 'fs/promises'
-import { existsSync } from 'fs'
-import path from 'path'
+import { query } from "@/lib/db"
+import { readSecureFile } from "@/lib/storage"
 
 interface QuestionPaper {
   id: number
@@ -13,18 +11,26 @@ interface QuestionPaper {
   subject_code: string
 }
 
-// GET /api/download/[id] - Download a paper (NO AUTH REQUIRED)
+// GET /api/download/[id] - Download a paper (NO AUTH REQUIRED for public read)
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
-    await initializeDatabase()
+    
+    // Validate ID is a number
+    const paperId = parseInt(id)
+    if (isNaN(paperId)) {
+      return NextResponse.json(
+        { error: "Invalid paper ID" },
+        { status: 400 }
+      )
+    }
 
     const papers = await query<QuestionPaper>(
       "SELECT id, file_url, file_type, original_filename, subject_name, subject_code FROM question_papers WHERE id = $1",
-      [id]
+      [paperId]
     )
 
     if (papers.length === 0) {
@@ -36,42 +42,16 @@ export async function GET(
 
     const paper = papers[0]
 
-    // Build file path - handle both old and new file structures
-    const fileName = path.basename(paper.file_url)
+    // Read file from secure storage (file_url contains the secure file ID)
+    const fileInfo = await readSecureFile(paper.file_url)
     
-    // Try new path first (/public/uploads/papers/)
-    let filePath = path.join(process.cwd(), 'public', 'uploads', 'papers', fileName)
-    
-    // If not found, try old path (/public/uploads/)
-    if (!existsSync(filePath)) {
-      filePath = path.join(process.cwd(), 'public', 'uploads', fileName)
-      console.log(`📁 Trying old path: ${filePath}`)
-    }
-    
-    // If still not found, try the exact path from database
-    if (!existsSync(filePath)) {
-      filePath = path.join(process.cwd(), 'public', paper.file_url)
-      console.log(`📁 Trying database path: ${filePath}`)
-    }
-
-    if (!existsSync(filePath)) {
-      console.error(`❌ File not found for paper ${id}:`)
-      console.error(`   Database URL: ${paper.file_url}`)
-      console.error(`   Tried paths:`)
-      console.error(`   - ${path.join(process.cwd(), 'public', 'uploads', 'papers', fileName)}`)
-      console.error(`   - ${path.join(process.cwd(), 'public', 'uploads', fileName)}`)
-      console.error(`   - ${path.join(process.cwd(), 'public', paper.file_url)}`)
-      
+    if (!fileInfo) {
+      console.error(`❌ File not found for paper ${id}: ${paper.file_url}`)
       return NextResponse.json(
         { error: "File not found on server. Please contact administrator." },
         { status: 404 }
       )
     }
-
-    console.log(`✅ Found file: ${filePath}`)
-
-    // Read file
-    const fileBuffer = await readFile(filePath)
 
     // Determine content type
     const contentTypes: Record<string, string> = {
@@ -80,28 +60,31 @@ export async function GET(
       'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     }
 
-    const contentType = contentTypes[paper.file_type.toLowerCase()] || 'application/octet-stream'
+    const contentType = contentTypes[paper.file_type.toLowerCase()] || fileInfo.mimeType
 
-    // Generate download filename
+    // Generate download filename from metadata (never expose internal file ID)
     const downloadFilename = paper.original_filename || 
       `${paper.subject_code}_${paper.subject_name}.${paper.file_type}`
 
     // Sanitize filename for the attachment header
     const sanitizedFilename = downloadFilename.replace(/[/\\?%*:|"<>/]/g, '_')
 
-    return new NextResponse(new Uint8Array(fileBuffer), {
+    return new NextResponse(new Uint8Array(fileInfo.buffer), {
       headers: {
         'Content-Type': contentType,
         'Content-Disposition': `attachment; filename="${sanitizedFilename}"; filename*=UTF-8''${encodeURIComponent(downloadFilename)}`,
-        'Content-Length': fileBuffer.length.toString(),
+        'Content-Length': fileInfo.buffer.length.toString(),
         'X-Content-Type-Options': 'nosniff',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+        // Security headers
+        'X-Frame-Options': 'DENY',
+        'X-Download-Options': 'noopen',
       }
     })
   } catch (error) {
     console.error("Error downloading paper:", error)
     return NextResponse.json(
-      { error: "Failed to download paper", details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: "Failed to download paper" },
       { status: 500 }
     )
   }
