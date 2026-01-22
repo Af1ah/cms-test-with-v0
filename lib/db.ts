@@ -81,14 +81,30 @@ export async function query<T = unknown>(text: string, params?: unknown[]): Prom
 }
 
 /**
- * Check database connection health
+ * Health check cache to avoid redundant queries
+ */
+let healthCacheTime = 0
+let healthCacheResult = false
+const HEALTH_CACHE_TTL = 5000 // 5 seconds
+
+/**
+ * Check database connection health (cached for 5 seconds)
  */
 export async function checkDatabaseHealth(): Promise<boolean> {
+  const now = Date.now()
+  if (now - healthCacheTime < HEALTH_CACHE_TTL) {
+    return healthCacheResult
+  }
+  
   try {
     await query('SELECT 1')
+    healthCacheTime = now
+    healthCacheResult = true
     return true
   } catch (error) {
     console.error('❌ Database health check failed:', error)
+    healthCacheTime = now
+    healthCacheResult = false
     return false
   }
 }

@@ -14,6 +14,7 @@ interface User {
 interface AuthContextType {
     user: User | null
     loading: boolean
+    isValidating: boolean
     isSigningOut: boolean
     signOut: () => Promise<void>
     refreshUser: () => Promise<void>
@@ -25,6 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
     const [loading, setLoading] = useState(true)
     const [isSigningOut, setIsSigningOut] = useState(false)
+    const [isValidating, setIsValidating] = useState(false)
     const router = useRouter()
 
     const fetchUser = useCallback(async () => {
@@ -66,17 +68,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [router])
 
     const refreshUser = useCallback(async () => {
-        setLoading(true)
+        setIsValidating(true)
         await fetchUser()
+        setIsValidating(false)
     }, [fetchUser])
 
     const value = useMemo(() => ({
         user,
         loading,
+        isValidating,
         isSigningOut,
         signOut,
         refreshUser,
-    }), [user, loading, isSigningOut, signOut, refreshUser])
+    }), [user, loading, isValidating, isSigningOut, signOut, refreshUser])
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

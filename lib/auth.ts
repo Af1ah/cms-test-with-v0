@@ -13,9 +13,11 @@ try {
   console.error('❌ Environment validation failed:', error)
 }
 
-const JWT_SECRET = new TextEncoder().encode(
-  envConfig?.jwtSecret || process.env.JWT_SECRET || 'your-super-secret-jwt-key-min-32-chars-long'
-)
+const jwtSecretValue = envConfig?.jwtSecret || process.env.JWT_SECRET
+if (!jwtSecretValue) {
+  throw new Error('JWT_SECRET environment variable is required')
+}
+const JWT_SECRET = new TextEncoder().encode(jwtSecretValue)
 
 const SALT_ROUNDS = 12
 const TOKEN_EXPIRY = '24h'
@@ -189,12 +191,6 @@ export async function createUser(
 
 export async function getUserByEmail(email: string): Promise<(User & { password_hash: string }) | null> {
   try {
-    // Check database health before querying
-    const isHealthy = await checkDatabaseHealth()
-    if (!isHealthy) {
-      throw new Error('Database connection is not healthy')
-    }
-
     const users = await query<User & { password_hash: string }>(
       'SELECT id, email, password_hash, name, role, created_at FROM users WHERE email = $1',
       [email]

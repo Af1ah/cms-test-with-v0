@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserByEmail, verifyPassword, createToken, setSessionCookieOnResponse } from '@/lib/auth'
-import { initializeDatabase, checkDatabaseHealth } from '@/lib/db'
+import { checkDatabaseHealth } from '@/lib/db'
 
 // Simple in-memory rate limiting (for production, use Redis or similar)
 const loginAttempts = new Map<string, { count: number; resetTime: number }>()
@@ -35,9 +35,6 @@ export async function POST(request: NextRequest) {
     })
 
     const loginPromise = async () => {
-      // Ensure database is initialized
-      await initializeDatabase()
-
       // Check database health
       const isHealthy = await checkDatabaseHealth()
       if (!isHealthy) {

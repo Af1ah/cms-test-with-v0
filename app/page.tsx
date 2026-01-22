@@ -1,8 +1,9 @@
 import { Header } from "@/components/header"
 import SearchClient from "./search-client"
-import { query, initializeDatabase } from "@/lib/db"
+import { query } from "@/lib/db"
+import { unstable_cache } from "next/cache"
 
-export const revalidate = 60 // Revalidate every minute
+export const revalidate = 120 // Revalidate every 2 minutes
 
 interface QuestionPaper {
   id: number
@@ -34,32 +35,44 @@ interface ProgramType {
   name: string
 }
 
+// Cache home page data for 2 minutes
+const getHomePageData = unstable_cache(
+  async () => {
+    const [recentPapers, departments, subjectTypes, programTypes, yearsResult] = await Promise.all([
+      query<QuestionPaper>(
+        `SELECT qp.*, 
+                d.name as department_name, 
+                st.name as subject_type_name,
+                pt.name as program_type_name
+         FROM question_papers qp
+         LEFT JOIN departments d ON qp.department_id = d.id
+         LEFT JOIN subject_types st ON qp.subject_type_id = st.id
+         LEFT JOIN program_types pt ON qp.program_type_id = pt.id
+         ORDER BY qp.created_at DESC
+         LIMIT 10`
+      ),
+      query<Department>("SELECT * FROM departments ORDER BY name"),
+      query<SubjectType>("SELECT * FROM subject_types ORDER BY name"),
+      query<ProgramType>("SELECT * FROM program_types ORDER BY name"),
+      query<{ year_of_examination: number }>(
+        "SELECT DISTINCT year_of_examination FROM question_papers ORDER BY year_of_examination DESC"
+      )
+    ])
+
+    return {
+      recentPapers,
+      departments,
+      subjectTypes,
+      programTypes,
+      years: yearsResult.map(r => r.year_of_examination)
+    }
+  },
+  ['home-page-data'],
+  { revalidate: 120, tags: ['home-data'] }
+)
+
 export default async function HomePage() {
-  await initializeDatabase()
-
-  // Fetch all required data in parallel
-  const [recentPapers, departments, subjectTypes, programTypes, yearsResult] = await Promise.all([
-    query<QuestionPaper>(
-      `SELECT qp.*, 
-              d.name as department_name, 
-              st.name as subject_type_name,
-              pt.name as program_type_name
-       FROM question_papers qp
-       LEFT JOIN departments d ON qp.department_id = d.id
-       LEFT JOIN subject_types st ON qp.subject_type_id = st.id
-       LEFT JOIN program_types pt ON qp.program_type_id = pt.id
-       ORDER BY qp.created_at DESC
-       LIMIT 10`
-    ),
-    query<Department>("SELECT * FROM departments ORDER BY name"),
-    query<SubjectType>("SELECT * FROM subject_types ORDER BY name"),
-    query<ProgramType>("SELECT * FROM program_types ORDER BY name"),
-    query<{ year_of_examination: number }>(
-      "SELECT DISTINCT year_of_examination FROM question_papers ORDER BY year_of_examination DESC"
-    )
-  ])
-
-  const years = yearsResult.map(r => r.year_of_examination)
+  const { recentPapers, departments, subjectTypes, programTypes, years } = await getHomePageData()
 
   return (
     <div className="min-h-screen bg-background">

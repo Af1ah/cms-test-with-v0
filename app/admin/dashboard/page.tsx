@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { getCurrentUser } from "@/lib/auth"
-import { query, initializeDatabase } from "@/lib/db"
+import { query } from "@/lib/db"
 import { AdminHeader } from "@/components/admin-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -32,18 +32,17 @@ export default async function AdminDashboardPage() {
     redirect("/admin/papers")
   }
 
-  await initializeDatabase()
+  // Parallelize all DB queries for faster load
+  const [paperCountResult, deptCountResult, recentPapers] = await Promise.all([
+    query<PaperCount>("SELECT COUNT(*) as count FROM question_papers"),
+    query<DeptCount>("SELECT COUNT(*) as count FROM departments"),
+    query<RecentPaper>(
+      "SELECT id, subject_name, subject_code, created_at FROM question_papers ORDER BY created_at DESC LIMIT 5"
+    )
+  ])
 
-  // Get statistics
-  const paperCountResult = await query<PaperCount>("SELECT COUNT(*) as count FROM question_papers")
   const totalPapers = parseInt(paperCountResult[0]?.count || '0')
-
-  const deptCountResult = await query<DeptCount>("SELECT COUNT(*) as count FROM departments")
   const totalDepts = parseInt(deptCountResult[0]?.count || '0')
-
-  const recentPapers = await query<RecentPaper>(
-    "SELECT id, subject_name, subject_code, created_at FROM question_papers ORDER BY created_at DESC LIMIT 5"
-  )
 
   return (
     <div className="min-h-screen bg-background">

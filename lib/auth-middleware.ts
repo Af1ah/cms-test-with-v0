@@ -1,13 +1,26 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { jwtVerify } from "jose"
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'your-super-secret-jwt-key-min-32-chars-long'
-)
+const jwtSecretValue = process.env.JWT_SECRET
+if (!jwtSecretValue) {
+  throw new Error('JWT_SECRET environment variable is required')
+}
+const JWT_SECRET = new TextEncoder().encode(jwtSecretValue)
 
 const COOKIE_NAME = 'auth_token'
 
 export async function updateSession(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+
+  // Fast path: skip auth check for public pages (no JWT verification needed)
+  const isPublicRoute = pathname === '/' || 
+                        pathname.startsWith('/browse') || 
+                        pathname.startsWith('/about') ||
+                        pathname.startsWith('/papers/')
+  if (isPublicRoute) {
+    return NextResponse.next({ request })
+  }
+
   const response = NextResponse.next({ request })
 
   // Get auth token from cookie
@@ -37,7 +50,6 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Protect admin routes
-  const pathname = request.nextUrl.pathname
   const isAdminRoute = pathname.startsWith("/admin")
   const isAuthPage = pathname.startsWith("/admin/login") || 
                      pathname.startsWith("/admin/signup") ||
